@@ -749,23 +749,30 @@
               col.id
             )}</span>
           </div>
-          <button class="add-task-btn text-gray-600 hover:text-blue-600 p-1 rounded-full hover:bg-white hover:bg-opacity-30">
-            <i class="fas fa-plus"></i>
-          </button>`;
+          ${
+            col.id === "todo"
+              ? `<button class="add-task-btn text-gray-600 hover:text-blue-600 p-1 rounded-full hover:bg-white hover:bg-opacity-30">
+          <i class="fas fa-plus"></i>
+        </button>`
+              : ""
+          }
+`;
 
           const list = document.createElement("div");
           list.className = "task-list p-4 space-y-3";
           list.dataset.status = col.id;
 
-          const addTaskBtn = header.querySelector(".add-task-btn");
-          addTaskBtn.addEventListener("click", () => {
-            openTaskModal({
-              projectId: state.selectedProjectId,
-              status: col.id,
-              priority: "medium",
-              estimatedTime: 1,
+          if (col.id === "todo") {
+            const addTaskBtn = header.querySelector(".add-task-btn");
+            addTaskBtn.addEventListener("click", () => {
+              openTaskModal({
+                projectId: state.selectedProjectId,
+                status: col.id,
+                priority: "medium",
+                estimatedTime: 1,
+              });
             });
-          });
+          }
 
           const tasks = state.tasks
             .filter(
