@@ -435,25 +435,6 @@
         const searchInput = document.getElementById("searchInput");
         const savingIndicator = document.getElementById("savingIndicator");
 
-        // Show saving indicator
-        function showSaving() {
-          savingIndicator.classList.remove("hidden");
-        }
-
-        // Hide saving indicator
-        function hideSaving() {
-          savingIndicator.classList.add("hidden");
-        }
-
-        // Save tasks to localStorage with saving state
-        function saveTasks() {
-          showSaving();
-          setTimeout(() => {
-            localStorage.setItem("pm-jira-tasks", JSON.stringify(tasks));
-            hideSaving();
-          }, 500); // Simulate a short saving delay
-        }
-
         // Initialize the board
         function initBoard() {
           renderTasks();
@@ -764,6 +745,19 @@
             renderTasks();
             updateTaskCounts();
             saveTasks();
+          }
+        }
+
+        // Save tasks to localStorage
+        function saveTasks() {
+          localStorage.setItem("jira-tasks", JSON.stringify(tasks));
+        }
+
+        // Load tasks from localStorage
+        function loadTasks() {
+          const savedTasks = localStorage.getItem("jira-tasks");
+          if (savedTasks) {
+            tasks = JSON.parse(savedTasks);
           }
         }
 
