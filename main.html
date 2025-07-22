@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Jira-like Todo List</title>
+    <title>Jira-like Task Board</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link
       rel="stylesheet"
@@ -14,16 +14,20 @@
         min-height: 300px;
         transition: all 0.3s ease;
       }
+      .task-list {
+        min-height: 100px;
+      }
       .task {
         cursor: grab;
         transition: all 0.2s ease;
+        border-left-width: 4px;
       }
       .task:active {
         cursor: grabbing;
       }
       .task.dragging {
-        opacity: 0.5;
-        transform: scale(1.02);
+        opacity: 0.4;
+        transform: scale(1.03);
         box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
           0 4px 6px -2px rgba(0, 0, 0, 0.05);
       }
@@ -32,183 +36,263 @@
         border: 2px dashed #6366f1;
       }
       .priority-high {
-        border-left: 4px solid #ef4444;
+        border-left-color: #ef4444;
       }
       .priority-medium {
-        border-left: 4px solid #f59e0b;
+        border-left-color: #f59e0b;
       }
       .priority-low {
-        border-left: 4px solid #10b981;
+        border-left-color: #10b981;
       }
-      .edit-mode {
-        background-color: #f8fafc;
-        box-shadow: 0 0 0 2px #6366f1;
+      .fc .fc-daygrid-day-frame,
+      .fc .fc-timegrid-col-frame {
+        min-height: 100px;
       }
-      .time-estimate {
-        background-color: #e0e7ff;
-        color: #4f46e5;
+      .fc-event {
+        margin: 2px;
+        padding: 2px 4px;
+        font-size: 0.85rem;
+        white-space: normal;
+        word-break: break-word;
+      }
+      .fc .fc-toolbar-title {
+        font-size: 1.25rem;
+      }
+      .scroll-container {
+        scrollbar-width: thin;
+        scrollbar-color: #94a3b8 #e2e8f0;
+      }
+      .scroll-container::-webkit-scrollbar {
+        height: 8px;
+      }
+      .scroll-container::-webkit-scrollbar-track {
+        background: #e2e8f0;
+        border-radius: 4px;
+      }
+      .scroll-container::-webkit-scrollbar-thumb {
+        background-color: #94a3b8;
+        border-radius: 4px;
+      }
+      @keyframes pulse-border {
+        0% {
+          border-color: #ef4444;
+          box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+        }
+        50% {
+          border-color: #f87171;
+          box-shadow: 0 0 0 6px rgba(239, 68, 68, 0);
+        }
+        100% {
+          border-color: #ef4444;
+          box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+        }
+      }
+      .pulse-border {
+        animation: pulse-border 1.5s infinite;
+        border-width: 1px !important;
+      }
+
+      .animate-pulse {
+        animation: pulse-border 0.8s infinite;
+      }
+      .task-card {
+        transition: all 0.2s ease;
+      }
+      .task-card:hover {
+        transform: translateY(-2px);
+      }
+      .dropzone {
+        min-height: 100px;
+        transition: background-color 0.2s ease;
+        padding-bottom: 2.5rem;
+      }
+      .dropzone.highlight {
+        background-color: #f1f5f9;
+      }
+      .modal {
+        transition: opacity 0.2s ease, transform 0.2s ease;
+      }
+      .project-card {
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+      }
+      .project-card.selected {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5),
+          0 4px 6px rgba(0, 0, 0, 0.1);
+      }
+      .project-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+      }
+      .project-card .progress-bar {
+        height: 4px;
+        border-radius: 2px;
+        background: rgba(255, 255, 255, 0.3);
+      }
+      .add-task-btn {
+        transition: all 0.2s ease;
+      }
+      .project-card .progress-fill {
+        height: 100%;
+        border-radius: 2px;
+        background: #fff;
+        transition: width 0.3s ease;
       }
     </style>
   </head>
-  <body class="bg-gray-100 min-h-screen">
+  <body class="bg-gray-50 min-h-screen">
     <div class="container mx-auto px-4 py-8">
-      <header class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-800 flex items-center">
-          <i class="fas fa-tasks mr-3 text-indigo-600"></i>
-          Task Board by malitbr
-        </h1>
-        <p class="text-gray-600 mt-2">
-          Drag and drop tasks between columns to update their status
-        </p>
+      <!-- Header -->
+      <header class="flex justify-between items-center mb-8">
+        <h1 class="text-3xl font-bold text-gray-800">Task Board</h1>
+        <div class="flex space-x-4">
+          <button
+            id="addProjectBtn"
+            class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center"
+          >
+            <i class="fas fa-plus mr-2"></i>New Project
+          </button>
+        </div>
       </header>
 
-      <div class="flex justify-between items-center mb-6">
-        <div class="relative w-64">
-          <input
-            type="text"
-            id="searchInput"
-            placeholder="Search tasks..."
-            class="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
-          <i class="fas fa-search absolute left-3 top-3 text-gray-400"></i>
+      <!-- Projects Horizontal Scroll -->
+      <div class="mb-8">
+        <h2 class="text-xl font-semibold text-gray-700 mb-4">Projects</h2>
+        <div class="relative">
+          <div
+            id="projectsContainer"
+            class="scroll-container flex space-x-4 pb-4 overflow-x-auto"
+          ></div>
+          <button
+            id="scrollLeft"
+            class="absolute left-0 top-1/2 transform -translate-y-1/2 bg-white p-2 rounded-full shadow-md opacity-0 transition-opacity duration-200"
+          >
+            <i class="fas fa-chevron-left text-gray-600"></i>
+          </button>
+          <button
+            id="scrollRight"
+            class="absolute right-0 top-1/2 transform -translate-y-1/2 bg-white p-2 rounded-full shadow-md opacity-0 transition-opacity duration-200"
+          >
+            <i class="fas fa-chevron-right text-gray-600"></i>
+          </button>
         </div>
-        <button
-          id="addTaskBtn"
-          class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg flex items-center"
-        >
-          <i class="fas fa-plus mr-2"></i> Add Task
-        </button>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <!-- Not Started Column -->
-        <div
-          class="column bg-white rounded-lg shadow"
-          data-status="not-started"
+      <!-- Board Controls -->
+      <div class="mb-6">
+        <h2
+          id="selectedProjectTitle"
+          class="text-2xl font-semibold text-gray-800"
         >
-          <div
-            class="p-4 border-b border-gray-200 flex justify-between items-center bg-indigo-50 rounded-t-lg"
-          >
-            <h2 class="font-semibold text-indigo-700">Not Started</h2>
-            <span
-              class="bg-indigo-100 text-indigo-800 text-xs font-medium px-2.5 py-0.5 rounded-full"
-            >
-              <span id="not-started-count">0</span> tasks
-            </span>
-          </div>
-          <div class="p-4 space-y-3 task-list" data-status="not-started">
-            <!-- Tasks will be added here -->
-          </div>
-        </div>
+          Select a project to view tasks
+        </h2>
+      </div>
 
-        <!-- In Progress Column -->
+      <!-- Task Board -->
+      <div
+        id="taskBoard"
+        class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6"
+      >
         <div
-          class="column bg-white rounded-lg shadow"
-          data-status="in-progress"
+          id="noProjectSelectedMessage"
+          class="text-center py-10 text-gray-500 col-span-full"
         >
-          <div
-            class="p-4 border-b border-gray-200 flex justify-between items-center bg-yellow-50 rounded-t-lg"
-          >
-            <h2 class="font-semibold text-yellow-700">In Progress</h2>
-            <span
-              class="bg-yellow-100 text-yellow-800 text-xs font-medium px-2.5 py-0.5 rounded-full"
-            >
-              <span id="in-progress-count">0</span> tasks
-            </span>
-          </div>
-          <div class="p-4 space-y-3 task-list" data-status="in-progress">
-            <!-- Tasks will be added here -->
-          </div>
-        </div>
-
-        <!-- Completed Column -->
-        <div class="column bg-white rounded-lg shadow" data-status="completed">
-          <div
-            class="p-4 border-b border-gray-200 flex justify-between items-center bg-green-50 rounded-t-lg"
-          >
-            <h2 class="font-semibold text-green-700">Completed</h2>
-            <span
-              class="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full"
-            >
-              <span id="completed-count">0</span> tasks
-            </span>
-          </div>
-          <div class="p-4 space-y-3 task-list" data-status="completed">
-            <!-- Tasks will be added here -->
-          </div>
-        </div>
-
-        <!-- Postponed Column -->
-        <div class="column bg-white rounded-lg shadow" data-status="postponed">
-          <div
-            class="p-4 border-b border-gray-200 flex justify-between items-center bg-gray-50 rounded-t-lg"
-          >
-            <h2 class="font-semibold text-gray-700">Postponed</h2>
-            <span
-              class="bg-gray-100 text-gray-800 text-xs font-medium px-2.5 py-0.5 rounded-full"
-            >
-              <span id="postponed-count">0</span> tasks
-            </span>
-          </div>
-          <div class="p-4 space-y-3 task-list" data-status="postponed">
-            <!-- Tasks will be added here -->
-          </div>
+          <i class="fas fa-tasks text-4xl mb-4"></i>
+          <p class="text-xl">Please select a project to view tasks</p>
         </div>
       </div>
     </div>
 
-    <!-- Add Task Modal -->
+    <!-- Modals -->
     <div
-      id="taskModal"
-      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50"
+      id="projectModal"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden"
     >
-      <div class="bg-white rounded-lg shadow-xl w-full max-w-md">
+      <div class="bg-white rounded-lg shadow-xl w-full max-w-md modal">
         <div class="p-6">
-          <div class="flex justify-between items-center mb-4">
-            <h3 class="text-xl font-semibold text-gray-800">Add New Task</h3>
-            <button
-              id="closeModalBtn"
-              class="text-gray-500 hover:text-gray-700"
-            >
-              <i class="fas fa-times"></i>
-            </button>
-          </div>
-          <form id="taskForm">
+          <h3 class="text-xl font-semibold mb-4" id="projectModalTitle">
+            Add New Project
+          </h3>
+          <form id="projectForm">
+            <input type="hidden" id="projectId" name="projectId" />
+            <input type="hidden" id="taskStatus" name="taskStatus" />
             <div class="mb-4">
-              <label
-                for="taskTitle"
-                class="block text-sm font-medium text-gray-700 mb-1"
-                >Task Title</label
-              >
+              <label class="block text-gray-700 mb-2">Project Name</label>
               <input
                 type="text"
-                id="taskTitle"
+                id="projectName"
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
             <div class="mb-4">
-              <label
-                for="taskDescription"
-                class="block text-sm font-medium text-gray-700 mb-1"
-                >Description</label
+              <label class="block text-gray-700 mb-2">Description</label>
+              <textarea
+                id="projectDescription"
+                rows="3"
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              ></textarea>
+            </div>
+            <div class="flex justify-end space-x-3">
+              <button
+                type="button"
+                id="cancelProjectBtn"
+                class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100"
               >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+              >
+                Save
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div
+      id="taskModal"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden"
+    >
+      <div class="bg-white rounded-lg shadow-xl w-full max-w-md modal">
+        <div class="p-6">
+          <h3 class="text-xl font-semibold mb-4" id="taskModalTitle">
+            Add New Task
+          </h3>
+          <form id="taskForm">
+            <input type="hidden" id="taskId" name="taskId" />
+            <input type="hidden" id="taskProjectId" name="taskProjectId" />
+            <input type="hidden" id="taskStatus" name="taskStatus" />
+            <div class="mb-4">
+              <label class="block text-gray-700 mb-2">Title</label>
+              <input
+                type="text"
+                id="taskTitle"
+                name="taskTitle"
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+              />
+            </div>
+            <div class="mb-4">
+              <label class="block text-gray-700 mb-2">Description</label>
               <textarea
                 id="taskDescription"
+                name="taskDescription"
                 rows="3"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               ></textarea>
             </div>
             <div class="grid grid-cols-2 gap-4 mb-4">
               <div>
-                <label
-                  for="taskPriority"
-                  class="block text-sm font-medium text-gray-700 mb-1"
-                  >Priority</label
-                >
+                <label class="block text-gray-700 mb-2">Priority</label>
                 <select
                   id="taskPriority"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  name="taskPriority"
+                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="low">Low</option>
                   <option value="medium">Medium</option>
@@ -216,45 +300,70 @@
                 </select>
               </div>
               <div>
-                <label
-                  for="taskDueDate"
-                  class="block text-sm font-medium text-gray-700 mb-1"
-                  >Due Date</label
-                >
+                <label class="block text-gray-700 mb-2">Assignee</label>
                 <input
-                  type="date"
-                  id="taskDueDate"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  type="text"
+                  name="taskAssignee"
+                  id="taskAssignee"
+                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
-            <div class="mb-4">
-              <label
-                for="taskTimeEstimate"
-                class="block text-sm font-medium text-gray-700 mb-1"
-                >Time Estimate (hours)</label
-              >
-              <input
-                type="number"
-                id="taskTimeEstimate"
-                min="0"
-                step="0.5"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
+            <div class="grid grid-cols-2 gap-4 mb-4">
+              <div>
+                <label class="block text-gray-700 mb-2">Start Date</label>
+                <input
+                  type="date"
+                  name="taskStartDate"
+                  id="taskStartDate"
+                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label class="block text-gray-700 mb-2">Estimated Days</label>
+                <div class="flex items-center h-10">
+                  <button
+                    type="button"
+                    id="decrementTime"
+                    name="decrementTime"
+                    class="px-3 h-full bg-gray-200 rounded-l-lg flex items-center justify-center"
+                  >
+                    -
+                  </button>
+                  <input
+                    type="number"
+                    id="taskEstimatedTime"
+                    name="taskEstimatedTime"
+                    min="0.5"
+                    step="0.5"
+                    value="1"
+                    class="w-full h-full px-4 border-t border-b border-gray-300 text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button
+                    type="button"
+                    id="incrementTime"
+                    name="incrementTime"
+                    class="px-3 h-full bg-gray-200 rounded-r-lg flex items-center justify-center"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
             </div>
             <div class="flex justify-end space-x-3">
               <button
                 type="button"
                 id="cancelTaskBtn"
-                class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                name="cancelTaskBtn"
+                class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
               >
-                Add Task
+                Save
               </button>
             </div>
           </form>
@@ -262,575 +371,842 @@
       </div>
     </div>
 
-    <!-- Edit Task Modal -->
     <div
-      id="editTaskModal"
-      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50"
+      id="confirmModal"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden"
     >
       <div class="bg-white rounded-lg shadow-xl w-full max-w-md">
         <div class="p-6">
-          <div class="flex justify-between items-center mb-4">
-            <h3 class="text-xl font-semibold text-gray-800">Edit Task</h3>
+          <h3 class="text-xl font-semibold mb-4" id="confirmModalTitle">
+            Confirm Action
+          </h3>
+          <p id="confirmModalMessage" class="mb-6">
+            Are you sure you want to perform this action?
+          </p>
+          <div class="flex justify-end space-x-3">
             <button
-              id="closeEditModalBtn"
-              class="text-gray-500 hover:text-gray-700"
+              id="cancelConfirmBtn"
+              class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100"
             >
-              <i class="fas fa-times"></i>
+              Cancel
+            </button>
+            <button
+              id="confirmActionBtn"
+              class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+            >
+              Confirm
             </button>
           </div>
-          <form id="editTaskForm">
-            <input type="hidden" id="editTaskId" />
-            <div class="mb-4">
-              <label
-                for="editTaskTitle"
-                class="block text-sm font-medium text-gray-700 mb-1"
-                >Task Title</label
-              >
-              <input
-                type="text"
-                id="editTaskTitle"
-                required
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
-            <div class="mb-4">
-              <label
-                for="editTaskDescription"
-                class="block text-sm font-medium text-gray-700 mb-1"
-                >Description</label
-              >
-              <textarea
-                id="editTaskDescription"
-                rows="3"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              ></textarea>
-            </div>
-            <div class="grid grid-cols-2 gap-4 mb-4">
-              <div>
-                <label
-                  for="editTaskPriority"
-                  class="block text-sm font-medium text-gray-700 mb-1"
-                  >Priority</label
-                >
-                <select
-                  id="editTaskPriority"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                </select>
-              </div>
-              <div>
-                <label
-                  for="editTaskDueDate"
-                  class="block text-sm font-medium text-gray-700 mb-1"
-                  >Due Date</label
-                >
-                <input
-                  type="date"
-                  id="editTaskDueDate"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-            </div>
-            <div class="mb-4">
-              <label
-                for="editTaskTimeEstimate"
-                class="block text-sm font-medium text-gray-700 mb-1"
-                >Time Estimate (hours)</label
-              >
-              <input
-                type="number"
-                id="editTaskTimeEstimate"
-                min="0"
-                step="0.5"
-                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              />
-            </div>
-            <div class="flex justify-end space-x-3">
-              <button
-                type="button"
-                id="cancelEditTaskBtn"
-                class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              >
-                Save Changes
-              </button>
-            </div>
-          </form>
         </div>
       </div>
     </div>
-
-    <div
-      id="savingIndicator"
-      class="fixed bottom-6 right-6 bg-white shadow-lg px-4 py-2 rounded-lg flex items-center space-x-2 text-indigo-700 font-medium hidden z-50"
-    >
-      <i class="fas fa-spinner fa-spin"></i>
-      <span>Saving...</span>
-    </div>
-
     <script>
-      document.addEventListener("DOMContentLoaded", function () {
-        // Sample tasks data
-        let tasks = [
+      const TaskService = (() => {
+        const generateId = () => Date.now().toString();
+
+        const addTask = (taskData) => {
+          const newTask = {
+            id: generateId(),
+            createdAt: new Date(),
+            status: taskData.status || "todo",
+            ...taskData,
+          };
+
+          // Add to end of current status group
+          const statusTasks = state.tasks.filter(
+            (t) => t.status === newTask.status
+          );
+          if (statusTasks.length > 0) {
+            // Set createdAt to be after the last task in this status
+            const lastTask = statusTasks[statusTasks.length - 1];
+            newTask.createdAt = new Date(lastTask.createdAt.getTime() + 1);
+          }
+
+          state.tasks.push(newTask);
+          return newTask;
+        };
+
+        const updateTask = (taskId, updates) => {
+          const task = state.tasks.find((t) => t.id === taskId);
+          if (task) Object.assign(task, updates);
+          return task;
+        };
+
+        const deleteTask = (taskId) => {
+          state.tasks = state.tasks.filter((t) => t.id !== taskId);
+        };
+
+        return { addTask, updateTask, deleteTask };
+      })();
+
+      const ModalService = (() => {
+        const modals = {};
+
+        const registerModal = (id, options = {}) => {
+          const modal = document.getElementById(id);
+          if (!modal) return;
+
+          modals[id] = {
+            element: modal,
+            open: () => modal.classList.remove("hidden"),
+            close: () => modal.classList.add("hidden"),
+            reset: () => {
+              const form = modal.querySelector("form");
+              if (form) form.reset();
+            },
+          };
+
+          // Close modal when clicking outside content
+          modal.addEventListener("click", (e) => {
+            if (e.target === modal) modals[id].close();
+          });
+
+          return modals[id];
+        };
+
+        return { registerModal, modals };
+      })();
+
+      const state = {
+        projects: [
           {
-            id: 1,
-            title: "Design new dashboard layout",
-            description: "Create wireframes and mockups for the new dashboard",
-            status: "not-started",
+            id: "1",
+            name: "Website Redesign",
+            description: "Complete redesign of company website",
+            color: "bg-purple-500",
+          },
+          {
+            id: "2",
+            name: "Mobile App Development",
+            description: "Build new mobile application for iOS and Android",
+            color: "bg-blue-500",
+          },
+          {
+            id: "3",
+            name: "Marketing Campaign",
+            description: "Q3 marketing campaign planning and execution",
+            color: "bg-green-500",
+          },
+          {
+            id: "4",
+            name: "Database Migration",
+            description: "Migrate legacy database to new cloud solution",
+            color: "bg-yellow-500",
+          },
+          {
+            id: "5",
+            name: "Customer Portal",
+            description: "Development of new customer self-service portal",
+            color: "bg-red-500",
+          },
+        ],
+        tasks: [
+          {
+            id: "1",
+            projectId: "1",
+            title: "Design Homepage",
+            description: "Create new homepage layout and design",
+            status: "todo",
             priority: "high",
-            dueDate: "2023-12-15",
-            timeEstimate: 8,
+            assignee: "John Doe",
+            estimatedTime: 4,
             createdAt: new Date(),
           },
           {
-            id: 2,
-            title: "Implement user authentication",
-            description: "Set up JWT authentication for the API",
+            id: "2",
+            projectId: "1",
+            title: "Develop Contact Form",
+            description: "Implement new contact form with validation",
             status: "in-progress",
             priority: "medium",
-            dueDate: "2023-12-10",
-            timeEstimate: 12,
+            assignee: "Jane Smith",
+            estimatedTime: 2,
             createdAt: new Date(),
           },
           {
-            id: 3,
-            title: "Write API documentation",
-            description: "Document all endpoints with examples",
-            status: "completed",
+            id: "3",
+            projectId: "1",
+            title: "SEO Optimization",
+            description: "Optimize all pages for search engines",
+            status: "done",
             priority: "low",
-            dueDate: "2023-12-05",
-            timeEstimate: 6,
+            assignee: "Mike Johnson",
+            estimatedTime: 6,
             createdAt: new Date(),
           },
           {
-            id: 4,
-            title: "Optimize database queries",
-            description: "Review and optimize slow queries",
-            status: "postponed",
-            priority: "medium",
-            dueDate: "2023-12-20",
-            timeEstimate: 10,
+            id: "4",
+            projectId: "2",
+            title: "App Wireframes",
+            description: "Create wireframes for all app screens",
+            status: "todo",
+            priority: "high",
+            assignee: "Sarah Williams",
+            estimatedTime: 8,
             createdAt: new Date(),
           },
-        ];
-
-        // DOM elements
-        const taskModal = document.getElementById("taskModal");
-        const editTaskModal = document.getElementById("editTaskModal");
-        const addTaskBtn = document.getElementById("addTaskBtn");
-        const closeModalBtn = document.getElementById("closeModalBtn");
-        const closeEditModalBtn = document.getElementById("closeEditModalBtn");
-        const cancelTaskBtn = document.getElementById("cancelTaskBtn");
-        const cancelEditTaskBtn = document.getElementById("cancelEditTaskBtn");
-        const taskForm = document.getElementById("taskForm");
-        const editTaskForm = document.getElementById("editTaskForm");
-        const searchInput = document.getElementById("searchInput");
-        const savingIndicator = document.getElementById("savingIndicator");
-
-        // Initialize the board
-        function initBoard() {
-          renderTasks();
-          updateTaskCounts();
-          setupDragAndDrop();
-        }
-
-        // Render all tasks
-        function renderTasks(filter = "") {
-          const columns = {
-            "not-started": document.querySelector(
-              '.task-list[data-status="not-started"]'
-            ),
-            "in-progress": document.querySelector(
-              '.task-list[data-status="in-progress"]'
-            ),
-            completed: document.querySelector(
-              '.task-list[data-status="completed"]'
-            ),
-            postponed: document.querySelector(
-              '.task-list[data-status="postponed"]'
-            ),
-          };
-
-          // Clear all columns
-          Object.values(columns).forEach((column) => {
-            column.innerHTML = "";
-          });
-
-          // Filter tasks if search term exists
-          const filteredTasks = filter
-            ? tasks.filter(
-                (task) =>
-                  task.title.toLowerCase().includes(filter.toLowerCase()) ||
-                  task.description.toLowerCase().includes(filter.toLowerCase())
-              )
-            : tasks;
-
-          // Render filtered tasks
-          filteredTasks.forEach((task) => {
-            const taskElement = createTaskElement(task);
-            columns[task.status].appendChild(taskElement);
-          });
-
-          // Reinitialize drag and drop for all tasks (including newly added ones)
-          setupDragAndDrop();
-        }
-
-        // Create a task element
-        function createTaskElement(task) {
-          const taskElement = document.createElement("div");
-          taskElement.className = `task bg-white p-3 rounded-lg shadow-sm border border-gray-200 ${
-            "priority-" + task.priority
-          }`;
-          taskElement.setAttribute("draggable", "true");
-          taskElement.setAttribute("data-task-id", task.id);
-
-          // Format due date
-          const dueDate = task.dueDate ? new Date(task.dueDate) : null;
-          const formattedDate = dueDate
-            ? dueDate.toLocaleDateString("en-US", {
-                month: "short",
-                day: "numeric",
-              })
-            : "No due date";
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-          const isOverdue =
-            dueDate && dueDate < today && task.status !== "completed";
-
-          // Priority badge
-          const priorityBadge = {
-            high: '<span class="bg-red-100 text-red-800 text-xs font-medium px-2 py-0.5 rounded">High</span>',
-            medium:
-              '<span class="bg-yellow-100 text-yellow-800 text-xs font-medium px-2 py-0.5 rounded">Medium</span>',
-            low: '<span class="bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded">Low</span>',
-          };
-
-          // Time estimate badge
-          const timeEstimateBadge = task.timeEstimate
-            ? `<span class="time-estimate text-xs font-medium px-2 py-0.5 rounded-full">${task.timeEstimate}h</span>`
-            : "";
-
-          taskElement.innerHTML = `
-                    <div class="flex justify-between items-start mb-2">
-                        <h3 class="font-medium text-gray-800">${task.title}</h3>
-                        <div class="flex space-x-2">
-                            <button class="edit-task text-gray-400 hover:text-blue-500" data-task-id="${
-                              task.id
-                            }">
-                                <i class="fas fa-edit text-xs"></i>
-                            </button>
-                            <button class="delete-task text-gray-400 hover:text-red-500" data-task-id="${
-                              task.id
-                            }">
-                                <i class="fas fa-trash-alt text-xs"></i>
-                            </button>
-                        </div>
-                    </div>
-                    <p class="text-sm text-gray-600 mb-3">${
-                      task.description || "No description"
-                    }</p>
-                    <div class="flex justify-between items-center text-xs">
-                        <div class="flex items-center space-x-2">
-                            ${priorityBadge[task.priority]}
-                            ${timeEstimateBadge}
-                            <span class="${
-                              isOverdue ? "text-red-500" : "text-gray-500"
-                            }">
-                                <i class="far fa-calendar-alt mr-1"></i>${formattedDate}
-                            </span>
-                        </div>
-                        <span class="text-gray-400">#${task.id}</span>
-                    </div>
-                `;
-
-          // Add delete event listener
-          taskElement
-            .querySelector(".delete-task")
-            .addEventListener("click", (e) => {
-              e.stopPropagation();
-              deleteTask(task.id);
-            });
-
-          // Add edit event listener
-          taskElement
-            .querySelector(".edit-task")
-            .addEventListener("click", (e) => {
-              e.stopPropagation();
-              openEditModal(task);
-            });
-
-          // Add click event to open edit modal
-          taskElement.addEventListener("click", (e) => {
-            if (
-              !e.target.closest(".edit-task") &&
-              !e.target.closest(".delete-task")
-            ) {
-              openEditModal(task);
-            }
-          });
-
-          return taskElement;
-        }
-
-        // Open edit modal with task data
-        function openEditModal(task) {
-          document.getElementById("editTaskId").value = task.id;
-          document.getElementById("editTaskTitle").value = task.title;
-          document.getElementById("editTaskDescription").value =
-            task.description || "";
-          document.getElementById("editTaskPriority").value = task.priority;
-          document.getElementById("editTaskDueDate").value = task.dueDate || "";
-          document.getElementById("editTaskTimeEstimate").value =
-            task.timeEstimate || "";
-          editTaskModal.classList.remove("hidden");
-        }
-
-        // Update task counts in each column
-        function updateTaskCounts() {
-          const counts = {
-            "not-started": tasks.filter((task) => task.status === "not-started")
-              .length,
-            "in-progress": tasks.filter((task) => task.status === "in-progress")
-              .length,
-            completed: tasks.filter((task) => task.status === "completed")
-              .length,
-            postponed: tasks.filter((task) => task.status === "postponed")
-              .length,
-          };
-
-          document.getElementById("not-started-count").textContent =
-            counts["not-started"];
-          document.getElementById("in-progress-count").textContent =
-            counts["in-progress"];
-          document.getElementById("completed-count").textContent =
-            counts["completed"];
-          document.getElementById("postponed-count").textContent =
-            counts["postponed"];
-        }
-
-        // Setup drag and drop functionality
-        function setupDragAndDrop() {
-          const tasks = document.querySelectorAll(".task");
-          const columns = document.querySelectorAll(".column");
-
-          tasks.forEach((task) => {
-            // Remove existing event listeners to avoid duplicates
-            task.removeEventListener("dragstart", dragStart);
-            task.removeEventListener("dragend", dragEnd);
-
-            // Add new event listeners
-            task.addEventListener("dragstart", dragStart);
-            task.addEventListener("dragend", dragEnd);
-          });
-
-          columns.forEach((column) => {
-            column.addEventListener("dragover", dragOver);
-            column.addEventListener("dragenter", dragEnter);
-            column.addEventListener("dragleave", dragLeave);
-            column.addEventListener("drop", drop);
-          });
-        }
-
-        // Drag and drop event handlers
-        let draggedTask = null;
-
-        function dragStart() {
-          draggedTask = this;
-          this.classList.add("dragging");
-          setTimeout(() => (this.style.display = "none"), 0);
-        }
-
-        function dragEnd() {
-          this.classList.remove("dragging");
-          this.style.display = "block";
-          draggedTask = null;
-        }
-
-        function dragOver(e) {
-          e.preventDefault();
-        }
-
-        function dragEnter(e) {
-          e.preventDefault();
-          this.classList.add("highlight");
-        }
-
-        function dragLeave() {
-          this.classList.remove("highlight");
-        }
-
-        function drop() {
-          this.classList.remove("highlight");
-          if (draggedTask) {
-            const newStatus = this.getAttribute("data-status");
-            const taskId = parseInt(draggedTask.getAttribute("data-task-id"));
-
-            // Update task status in the data
-            const taskIndex = tasks.findIndex((task) => task.id === taskId);
-            if (taskIndex !== -1) {
-              tasks[taskIndex].status = newStatus;
-            }
-
-            // Move task to new column
-            const taskList = this.querySelector(".task-list");
-            taskList.appendChild(draggedTask);
-
-            // Update counts
-            updateTaskCounts();
-
-            // Save to localStorage
-            saveTasks();
-          }
-        }
-
-        // Add new task
-        function addTask(title, description, priority, dueDate, timeEstimate) {
-          const newTask = {
-            id:
-              tasks.length > 0
-                ? Math.max(...tasks.map((task) => task.id)) + 1
-                : 1,
-            title,
-            description,
-            status: "not-started",
-            priority,
-            dueDate,
-            timeEstimate: timeEstimate ? parseFloat(timeEstimate) : null,
+          {
+            id: "5",
+            projectId: "2",
+            title: "API Integration",
+            description: "Integrate with backend API services",
+            status: "in-progress",
+            priority: "high",
+            assignee: "David Brown",
+            estimatedTime: 5,
             createdAt: new Date(),
+          },
+          {
+            id: "6",
+            projectId: "3",
+            title: "Social Media Strategy",
+            description: "Develop strategy for social media channels",
+            status: "todo",
+            priority: "medium",
+            assignee: "Lisa Taylor",
+            estimatedTime: 3,
+            createdAt: new Date(),
+          },
+        ],
+        selectedProjectId: null,
+        darkMode: false,
+        isSaving: false,
+        isLoading: false,
+      };
+
+      /* ========================= DOM REFERENCES ============================== */
+      const projectsContainer = document.getElementById("projectsContainer");
+      const taskBoard = document.getElementById("taskBoard");
+      const selectedProjectTitle = document.getElementById(
+        "selectedProjectTitle"
+      );
+      const noProjectSelectedMessage = document.getElementById(
+        "noProjectSelectedMessage"
+      );
+      const addProjectBtn = document.getElementById("addProjectBtn");
+      const projectModal = document.getElementById("projectModal");
+      const taskModal = document.getElementById("taskModal");
+      const confirmModal = document.getElementById("confirmModal");
+      const weekCalendarModal = document.getElementById("weekCalendarModal");
+
+      const statusColumns = [
+        { id: "todo", title: "To Do", color: "bg-gray-200" },
+        { id: "in-progress", title: "In Progress", color: "bg-blue-200" },
+        { id: "review", title: "Review", color: "bg-yellow-200" },
+        { id: "done", title: "Done", color: "bg-green-200" },
+      ];
+
+      /* ========================= INITIALISE ================================== */
+      init();
+      function init() {
+        loadProgress();
+        renderProjects();
+        setupEventListeners();
+      }
+
+      /* ========================= RENDER PROJECTS ============================== */
+      function renderProjects() {
+        projectsContainer.innerHTML = "";
+        state.projects.forEach((project) => {
+          const tasks = state.tasks.filter((t) => t.projectId === project.id);
+          const doneCount = tasks.filter((t) => t.status === "done").length;
+          const progressPercent = tasks.length
+            ? Math.round((doneCount / tasks.length) * 100)
+            : 0;
+
+          const card = document.createElement("div");
+          card.className = `project-card flex-shrink-0 w-64 h-40 rounded-xl p-4 cursor-pointer border-2 border-transparent ${project.color} text-white`;
+          if (state.selectedProjectId === project.id)
+            card.classList.add("selected");
+          card.dataset.projectId = project.id;
+
+          card.innerHTML = `
+          <div class="relative h-full flex flex-col justify-between">
+            <div>
+              <div class="flex justify-between items-start mb-2">
+                <h3 class="font-bold text-lg truncate">${project.name}</h3>
+                <div class="flex space-x-2">
+                  <button class="edit-project-btn text-white opacity-70 hover:opacity-100 p-1"><i class="fas fa-edit text-xs"></i></button>
+                  <button class="delete-project-btn text-white opacity-70 hover:opacity-100 p-1"><i class="fas fa-trash text-xs"></i></button>
+                </div>
+              </div>
+              <p class="text-sm opacity-80 line-clamp-2 mb-3">${
+                project.description || "No description"
+              }</p>
+            </div>
+            <div>
+              <div class="flex justify-between items-center text-xs mb-1"><span>Progress</span><span>${progressPercent}%</span></div>
+              <div class="progress-bar mb-2"><div class="progress-fill" style="width:${progressPercent}%"></div></div>
+              <div class="flex justify-between items-center text-xs">
+                <span><i class="fas fa-tasks mr-1"></i>${
+                  tasks.length
+                } tasks</span>
+                <span><i class="fas fa-check-circle mr-1"></i>${doneCount} done</span>
+              </div>
+            </div>
+          </div>`;
+
+          card.addEventListener("click", (e) => {
+            if (
+              !e.target.closest(".edit-project-btn") &&
+              !e.target.closest(".delete-project-btn")
+            )
+              selectProject(project.id);
+          });
+          card
+            .querySelector(".edit-project-btn")
+            .addEventListener("click", (e) => {
+              e.stopPropagation();
+              openProjectModal(project);
+            });
+          card
+            .querySelector(".delete-project-btn")
+            .addEventListener("click", (e) => {
+              e.stopPropagation();
+              openConfirmModal(
+                "Delete Project",
+                "Delete this project and all its tasks?",
+                () => deleteProject(project.id)
+              );
+            });
+          projectsContainer.appendChild(card);
+        });
+      }
+
+      function selectProject(projectId) {
+        state.selectedProjectId = projectId;
+        renderProjects();
+        renderTaskBoard();
+        const proj = state.projects.find((p) => p.id === projectId);
+        selectedProjectTitle.textContent = proj.name;
+        noProjectSelectedMessage.classList.add("hidden");
+      }
+
+      /* ========================= RENDER TASK BOARD =========================== */
+      function renderTaskBoard() {
+        if (!state.selectedProjectId) {
+          noProjectSelectedMessage.classList.remove("hidden");
+          taskBoard.innerHTML = "";
+          taskBoard.appendChild(noProjectSelectedMessage);
+          return;
+        }
+        taskBoard.innerHTML = "";
+        statusColumns.forEach((col) => {
+          const columnEl = document.createElement("div");
+          columnEl.className = "column bg-white rounded-lg shadow";
+          columnEl.dataset.status = col.id;
+
+          const header = document.createElement("div");
+          header.className = `p-4 border-b border-gray-200 flex justify-between items-center ${col.color} rounded-t-lg`;
+          header.innerHTML = `
+          <div class="flex items-center space-x-2">
+            <h3 class="font-semibold">${col.title}</h3>
+            <span class="text-sm bg-white bg-opacity-70 px-2.5 py-0.5 rounded-full">${getTaskCountByStatus(
+              col.id
+            )}</span>
+          </div>
+          <button class="add-task-btn text-gray-600 hover:text-blue-600 p-1 rounded-full hover:bg-white hover:bg-opacity-30">
+            <i class="fas fa-plus"></i>
+          </button>`;
+
+          const list = document.createElement("div");
+          list.className = "task-list p-4 space-y-3";
+          list.dataset.status = col.id;
+
+          const addTaskBtn = header.querySelector(".add-task-btn");
+          addTaskBtn.addEventListener("click", () => {
+            openTaskModal({
+              projectId: state.selectedProjectId,
+              status: col.id,
+              priority: "medium",
+              estimatedTime: 1,
+            });
+          });
+
+          const tasks = state.tasks
+            .filter(
+              (t) =>
+                t.projectId === state.selectedProjectId && t.status === col.id
+            )
+            .sort((a, b) => a.createdAt - b.createdAt);
+
+          tasks.forEach((task) => list.appendChild(createTaskElement(task)));
+
+          columnEl.appendChild(header);
+          columnEl.appendChild(list);
+          taskBoard.appendChild(columnEl);
+        });
+        setupDragAndDrop();
+      }
+
+      function getTaskCountByStatus(status) {
+        return state.tasks.filter(
+          (t) => t.projectId === state.selectedProjectId && t.status === status
+        ).length;
+      }
+
+      /* ========================= TASK CARD ================================= */
+      function createTaskElement(task) {
+        const el = document.createElement("div");
+        el.className = `task bg-white p-3 rounded-lg shadow-sm border border-gray-200 priority-${task.priority}`;
+        el.draggable = true;
+        el.dataset.taskId = task.id;
+
+        // Calculate days remaining
+        let daysRemaining = "";
+        let isOverdue = false;
+        if (task.startDate && task.estimatedTime) {
+          const startDate = new Date(task.startDate);
+          const endDate = new Date(startDate);
+          endDate.setDate(startDate.getDate() + parseInt(task.estimatedTime));
+
+          const today = new Date();
+          const diffTime = endDate - today;
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+          if (diffDays < 0) {
+            daysRemaining = `${Math.abs(diffDays)} days overdue`;
+            isOverdue = true;
+          } else {
+            daysRemaining = `${diffDays} days left`;
+          }
+        }
+
+        el.innerHTML = `
+        <div class="flex justify-between items-start mb-2">
+          <h4 class="font-medium text-gray-800">${task.title}</h4>
+          <div class="flex space-x-2">
+            <button class="edit-task text-gray-400 hover:text-blue-500" data-task-id="${
+              task.id
+            }"><i class="fas fa-edit text-xs"></i></button>
+            <button class="delete-task text-gray-400 hover:text-red-500" data-task-id="${
+              task.id
+            }"><i class="fas fa-trash text-xs"></i></button>
+          </div>
+        </div>
+        <p class="text-sm text-gray-600 mb-3">${
+          task.description || "No description"
+        }</p>
+        <div class="flex justify-between items-center text-xs">
+          <span class="bg-gray-200 text-gray-800 px-2 py-1 rounded-full">${
+            task.priority
+          }</span>
+          <div class="text-right">
+            <div class="text-gray-500">${task.assignee || "Unassigned"}</div>
+            ${
+              daysRemaining
+                ? `<div class="${
+                    isOverdue ? "text-red-500 font-medium" : "text-gray-500"
+                  }">${daysRemaining}</div>`
+                : ""
+            }
+          </div>
+        </div>`;
+
+        // Add pulsing border for overdue tasks
+        if (isOverdue) {
+          el.classList.add("pulse-border");
+          el.style.borderColor = "#ef4444";
+          el.style.borderWidth = "1px";
+        }
+
+        el.querySelector(".edit-task").addEventListener("click", (e) => {
+          e.stopPropagation();
+          openTaskModal(task);
+        });
+        el.querySelector(".delete-task").addEventListener("click", (e) => {
+          e.stopPropagation();
+          openConfirmModal(
+            "Alert Message",
+            "Are you sure you want to delete this task?",
+            () => deleteTask(task.id)
+          );
+        });
+        return el;
+      }
+
+      /* ========================= DRAG & DROP =============================== */
+      let draggedTask = null;
+      function setupDragAndDrop() {
+        const tasks = document.querySelectorAll(".task");
+        const columns = document.querySelectorAll(".column");
+        const taskLists = document.querySelectorAll(".task-list");
+
+        tasks.forEach((task) => {
+          task.removeEventListener("dragstart", dragStart);
+          task.removeEventListener("dragend", dragEnd);
+
+          task.addEventListener("dragstart", dragStart);
+          task.addEventListener("dragend", dragEnd);
+        });
+
+        taskLists.forEach((list) => {
+          list.addEventListener("dragover", dragOverList);
+          list.addEventListener("drop", dropList);
+        });
+      }
+
+      function dragStart(e) {
+        draggedTask = this;
+        this.classList.add("dragging");
+        setTimeout(() => (this.style.display = "none"), 0);
+      }
+
+      function dragEnd() {
+        this.classList.remove("dragging");
+        this.style.display = "block";
+        draggedTask = null;
+      }
+
+      function dragOverList(e) {
+        e.preventDefault();
+        const draggingTask = document.querySelector(".dragging");
+        const afterElement = getDragAfterElement(this, e.clientY);
+
+        if (afterElement) {
+          this.insertBefore(draggingTask, afterElement);
+        } else {
+          this.appendChild(draggingTask);
+        }
+      }
+
+      function dropList(e) {
+        e.preventDefault();
+        if (!draggedTask) return;
+
+        // Update task status to match the list's status
+        const newStatus = this.dataset.status;
+        const taskId = draggedTask.dataset.taskId;
+        const task = state.tasks.find((t) => t.id === taskId);
+
+        if (task) {
+          task.status = newStatus;
+          updateTaskOrder();
+          renderTaskBoard();
+          renderProjects();
+        }
+      }
+
+      function getDragAfterElement(container, y) {
+        const tasks = [...container.querySelectorAll(".task:not(.dragging)")];
+
+        if (!tasks.length) return null;
+
+        return tasks.reduce(
+          (closest, child) => {
+            const box = child.getBoundingClientRect();
+            const offset = y - box.top - box.height / 2;
+
+            if (offset < 0 && offset > closest.offset) {
+              return { offset: offset, element: child };
+            } else {
+              return closest;
+            }
+          },
+          { offset: Number.NEGATIVE_INFINITY }
+        ).element;
+      }
+
+      function updateTaskOrder() {
+        document.querySelectorAll(".task-list").forEach((list) => {
+          const status = list.dataset.status;
+          const taskElements = list.querySelectorAll(".task");
+
+          taskElements.forEach((el, index) => {
+            const taskId = el.dataset.taskId;
+            const task = state.tasks.find((t) => t.id === taskId);
+            if (task) {
+              task.status = status;
+              task.createdAt = new Date(Date.now() + index);
+            }
+          });
+        });
+      }
+
+      /* ========================= MODALS / FORMS ============================ */
+      function openProjectModal(project) {
+        const form = document.getElementById("projectForm");
+        form.reset();
+        if (project) {
+          document.getElementById("projectModalTitle").textContent =
+            "Edit Project";
+          document.getElementById("projectId").value = project.id;
+          document.getElementById("projectName").value = project.name;
+          document.getElementById("projectDescription").value =
+            project.description;
+        } else {
+          document.getElementById("projectModalTitle").textContent =
+            "Add New Project";
+          document.getElementById("projectId").value = "";
+        }
+        projectModal.classList.remove("hidden");
+      }
+      function openTaskModal(task = {}) {
+        const taskModal = ModalService.modals.taskModal;
+        const form = document.getElementById("taskForm");
+
+        form.reset();
+
+        if (task.id) {
+          // Editing
+          document.getElementById("taskModalTitle").textContent = "Edit Task";
+          document.getElementById("taskId").value = task.id;
+          document.getElementById("taskTitle").value = task.title;
+          document.getElementById("taskDescription").value = task.description;
+          document.getElementById("taskPriority").value = task.priority;
+          document.getElementById("taskAssignee").value = task.assignee || "";
+          document.getElementById("taskProjectId").value = task.projectId;
+          document.getElementById("taskStatus").value = task.status;
+          document.getElementById("taskStartDate").value = task.startDate || "";
+          document.getElementById("taskEstimatedTime").value =
+            task.estimatedTime || 1;
+        } else {
+          // Adding
+          document.getElementById("taskModalTitle").textContent =
+            "Add New Task";
+          document.getElementById("taskId").value = "";
+          document.getElementById("taskStatus").value = task.status || "todo";
+          document.getElementById("taskProjectId").value =
+            state.selectedProjectId;
+          document.getElementById("taskPriority").value = "medium";
+          document.getElementById("taskStartDate").value = "";
+          document.getElementById("taskEstimatedTime").value = 1;
+        }
+
+        taskModal.open();
+      }
+      function openConfirmModal(title, msg, cb) {
+        document.getElementById("confirmModalTitle").textContent = title;
+        document.getElementById("confirmModalMessage").textContent = msg;
+        confirmModal.cb = cb; // Store the callback as a function
+        confirmModal.classList.remove("hidden");
+      }
+      function closeProjectModal() {
+        projectModal.classList.add("hidden");
+      }
+      function closeTaskModal() {
+        taskModal.classList.add("hidden");
+      }
+      function closeConfirmModal() {
+        confirmModal.classList.add("hidden");
+      }
+
+      /* ========================= CRUD ====================================== */
+      function deleteProject(id) {
+        state.projects = state.projects.filter((p) => p.id !== id);
+        state.tasks = state.tasks.filter((t) => t.projectId !== id);
+        if (state.selectedProjectId === id) {
+          state.selectedProjectId = null;
+          selectedProjectTitle.textContent = "Select a project to view tasks";
+          noProjectSelectedMessage.classList.remove("hidden");
+        }
+        saveProgress(); // <-- Add this line
+        renderProjects();
+        renderTaskBoard();
+        closeConfirmModal();
+      }
+      function deleteTask(id) {
+        state.tasks = state.tasks.filter((t) => t.id !== id);
+        saveProgress(); // <-- Add this line
+        renderTaskBoard();
+        renderProjects();
+        closeConfirmModal();
+      }
+
+      /* ========================= FORM SUBMIT ================================ */
+      document.getElementById("projectForm").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const data = {
+          id: document.getElementById("projectId").value,
+          name: document.getElementById("projectName").value,
+          description: document.getElementById("projectDescription").value,
+        };
+        if (data.id) {
+          const p = state.projects.find((p) => p.id === data.id);
+          Object.assign(p, data);
+        } else {
+          state.projects.push({
+            id: Date.now().toString(),
+            ...data,
+            color: [
+              "bg-blue-500",
+              "bg-green-500",
+              "bg-red-500",
+              "bg-yellow-500",
+              "bg-purple-500",
+              "bg-indigo-500",
+              "bg-pink-500",
+            ][Math.floor(Math.random() * 7)],
+          });
+        }
+        saveProgress(); // <-- Add this line
+        renderProjects();
+        closeProjectModal();
+      });
+      /* ========================= TASK FORM HANDLER ========================== */
+      const setupTaskForm = () => {
+        const taskModal = ModalService.registerModal("taskModal");
+        const form = document.getElementById("taskForm");
+
+        form.addEventListener("submit", (e) => {
+          e.preventDefault();
+
+          console.log("Task form submitted");
+
+          const formData = new FormData(form);
+          const title = (formData.get("taskTitle") || "").trim();
+
+          console.log("Form data:", {
+            title,
+            projectId: formData.get("taskProjectId"),
+            status: formData.get("taskStatus"),
+            description: formData.get("taskDescription"),
+            priority: formData.get("taskPriority"),
+            assignee: formData.get("taskAssignee"),
+            startDate: formData.get("taskStartDate"),
+            estimatedTime: formData.get("taskEstimatedTime"),
+            taskId: formData.get("taskId"),
+          });
+
+          if (!title) {
+            alert("Please enter a task title");
+            console.log("No title entered, aborting submit");
+            return;
+          }
+
+          const taskData = {
+            projectId: formData.get("taskProjectId"),
+            status: formData.get("taskStatus") || "todo",
+            title: title,
+            description: formData.get("taskDescription").trim(),
+            priority: formData.get("taskPriority"),
+            assignee: formData.get("taskAssignee").trim(),
+            startDate: formData.get("taskStartDate") || null,
+            estimatedTime: parseInt(formData.get("taskEstimatedTime")) || 1,
           };
 
-          tasks.push(newTask);
-          renderTasks();
-          updateTaskCounts();
-          saveTasks();
-        }
-
-        // Update existing task
-        function updateTask(
-          taskId,
-          title,
-          description,
-          priority,
-          dueDate,
-          timeEstimate
-        ) {
-          const taskIndex = tasks.findIndex((task) => task.id === taskId);
-          if (taskIndex !== -1) {
-            tasks[taskIndex] = {
-              ...tasks[taskIndex],
-              title,
-              description,
-              priority,
-              dueDate,
-              timeEstimate: timeEstimate ? parseFloat(timeEstimate) : null,
-            };
-
-            renderTasks();
-            saveTasks();
+          if (formData.get("taskId")) {
+            console.log(
+              "Updating existing task:",
+              formData.get("taskId"),
+              taskData
+            );
+            TaskService.updateTask(formData.get("taskId"), taskData);
+          } else {
+            console.log("Adding new task:", taskData);
+            TaskService.addTask(taskData);
           }
-        }
+          saveProgress(); // <-- Add this line
+          // Update UI
+          renderTaskBoard();
+          renderProjects();
 
-        // Delete task
-        function deleteTask(taskId) {
-          if (confirm("Are you sure you want to delete this task?")) {
-            tasks = tasks.filter((task) => task.id !== taskId);
-            renderTasks();
-            updateTaskCounts();
-            saveTasks();
-          }
-        }
+          // Log tasks in each column after update
+          statusColumns.forEach((col) => {
+            const columnTasks = state.tasks.filter(
+              (t) =>
+                t.projectId === state.selectedProjectId && t.status === col.id
+            );
+            console.log(
+              `Tasks in column "${col.title}" (${col.id}):`,
+              columnTasks
+            );
+          });
 
-        // Save tasks to localStorage
-        function saveTasks() {
-          localStorage.setItem("jira-tasks", JSON.stringify(tasks));
-        }
-
-        // Load tasks from localStorage
-        function loadTasks() {
-          const savedTasks = localStorage.getItem("jira-tasks");
-          if (savedTasks) {
-            tasks = JSON.parse(savedTasks);
-          }
-        }
-
-        // Modal event listeners
-        addTaskBtn.addEventListener("click", () => {
-          taskModal.classList.remove("hidden");
+          // Clean up
+          taskModal.close();
+          taskModal.reset();
+          console.log("Task modal closed and reset");
         });
+      };
 
-        closeModalBtn.addEventListener("click", () => {
-          taskModal.classList.add("hidden");
-        });
+      // Initialize when DOM is ready (works even if DOM is already loaded)
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", setupTaskForm);
+      } else {
+        console.log("DOM already loaded, setting up task form");
+        setupTaskForm();
+      }
 
-        closeEditModalBtn.addEventListener("click", () => {
-          editTaskModal.classList.add("hidden");
-        });
-
-        cancelTaskBtn.addEventListener("click", () => {
-          taskModal.classList.add("hidden");
-        });
-
-        cancelEditTaskBtn.addEventListener("click", () => {
-          editTaskModal.classList.add("hidden");
-        });
-
-        // Form submission for new task
-        taskForm.addEventListener("submit", (e) => {
-          e.preventDefault();
-          const title = document.getElementById("taskTitle").value;
-          const description = document.getElementById("taskDescription").value;
-          const priority = document.getElementById("taskPriority").value;
-          const dueDate = document.getElementById("taskDueDate").value;
-          const timeEstimate =
-            document.getElementById("taskTimeEstimate").value;
-
-          addTask(title, description, priority, dueDate, timeEstimate);
-          taskModal.classList.add("hidden");
-          taskForm.reset();
-        });
-
-        // Form submission for editing task
-        editTaskForm.addEventListener("submit", (e) => {
-          e.preventDefault();
-          const taskId = parseInt(document.getElementById("editTaskId").value);
-          const title = document.getElementById("editTaskTitle").value;
-          const description = document.getElementById(
-            "editTaskDescription"
-          ).value;
-          const priority = document.getElementById("editTaskPriority").value;
-          const dueDate = document.getElementById("editTaskDueDate").value;
-          const timeEstimate = document.getElementById(
-            "editTaskTimeEstimate"
-          ).value;
-
-          updateTask(
-            taskId,
-            title,
-            description,
-            priority,
-            dueDate,
-            timeEstimate
+      /* ========================= EVENT LISTENERS =========================== */
+      function setupEventListeners() {
+        document
+          .getElementById("incrementTime")
+          .addEventListener("click", () => {
+            const input = document.getElementById("taskEstimatedTime");
+            input.value = (parseFloat(input.value) + 0.5).toFixed(1);
+          });
+        document
+          .getElementById("decrementTime")
+          .addEventListener("click", () => {
+            const input = document.getElementById("taskEstimatedTime");
+            const newVal = Math.max(0.5, parseFloat(input.value) - 0.5);
+            input.value = newVal.toFixed(1);
+          });
+        addProjectBtn.addEventListener("click", () => openProjectModal());
+        document
+          .getElementById("cancelProjectBtn")
+          .addEventListener("click", closeProjectModal);
+        document
+          .getElementById("cancelTaskBtn")
+          .addEventListener("click", closeTaskModal);
+        document
+          .getElementById("cancelConfirmBtn")
+          .addEventListener("click", closeConfirmModal);
+        document
+          .getElementById("confirmActionBtn")
+          .addEventListener("click", () => {
+            if (typeof confirmModal.cb === "function") {
+              confirmModal.cb();
+            }
+          });
+        document
+          .getElementById("scrollLeft")
+          .addEventListener("click", () =>
+            projectsContainer.scrollBy({ left: -300, behavior: "smooth" })
           );
-          editTaskModal.classList.add("hidden");
+        document
+          .getElementById("scrollRight")
+          .addEventListener("click", () =>
+            projectsContainer.scrollBy({ left: 300, behavior: "smooth" })
+          );
+        projectsContainer.addEventListener("scroll", () => {
+          const { scrollLeft, scrollWidth, clientWidth } = projectsContainer;
+          document.getElementById("scrollLeft").style.opacity =
+            scrollLeft > 0 ? "1" : "0";
+          document.getElementById("scrollRight").style.opacity =
+            scrollLeft < scrollWidth - clientWidth ? "1" : "0";
         });
-
-        // Search functionality
-        searchInput.addEventListener("input", (e) => {
-          renderTasks(e.target.value);
+        [projectModal, taskModal, confirmModal].forEach((m) =>
+          m.addEventListener("click", (e) => {
+            if (e.target === m) m.classList.add("hidden");
+          })
+        );
+        document.addEventListener("keydown", (e) => {
+          if (e.key === "Escape") {
+            [projectModal, taskModal, confirmModal, weekCalendarModal].forEach(
+              (m) => m.classList.add("hidden")
+            );
+          }
         });
+      }
 
-        // Load tasks and initialize board
-        loadTasks();
-        initBoard();
-      });
+      function saveProgress() {
+        localStorage.setItem("projects", JSON.stringify(state.projects));
+        localStorage.setItem("tasks", JSON.stringify(state.tasks));
+      }
+
+      function loadProgress() {
+        const savedProjects = localStorage.getItem("projects");
+        const savedTasks = localStorage.getItem("tasks");
+        if (savedProjects) state.projects = JSON.parse(savedProjects);
+        if (savedTasks) {
+          state.tasks = JSON.parse(savedTasks).map((t) => ({
+            ...t,
+            createdAt: new Date(t.createdAt),
+          }));
+        }
+      }
     </script>
   </body>
 </html>
