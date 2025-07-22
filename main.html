@@ -155,6 +155,14 @@
           </button>
         </div>
       </header>
+      <div class="mb-6">
+        <input
+          type="text"
+          id="projectSearchBar"
+          placeholder="Search projects..."
+          class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+      </div>
 
       <!-- Projects Horizontal Scroll -->
       <div class="mb-8">
@@ -572,6 +580,7 @@
         darkMode: false,
         isSaving: false,
         isLoading: false,
+        projectSearchTerm: "", // <-- Add this line
       };
 
       /* ========================= DOM REFERENCES ============================== */
@@ -600,14 +609,47 @@
       init();
       function init() {
         loadProgress();
+        ensureLastUsed(); // <-- Add this line
         renderProjects();
         setupEventListeners();
+      }
+
+      // After loading projects (in loadProgress or init), ensure each project has a lastUsed property
+      function ensureLastUsed() {
+        const now = Date.now();
+        state.projects.forEach((p) => {
+          if (!p.lastUsed) p.lastUsed = now;
+        });
       }
 
       /* ========================= RENDER PROJECTS ============================== */
       function renderProjects() {
         projectsContainer.innerHTML = "";
-        state.projects.forEach((project) => {
+        const searchTerm = (state.projectSearchTerm || "").toLowerCase();
+        let filteredProjects = searchTerm
+          ? state.projects.filter(
+              (project) =>
+                project.name.toLowerCase().includes(searchTerm) ||
+                (project.description &&
+                  project.description.toLowerCase().includes(searchTerm))
+            )
+          : [...state.projects];
+
+        // Sort by lastUsed descending
+        filteredProjects.sort((a, b) => (b.lastUsed || 0) - (a.lastUsed || 0));
+
+        // Move selected project to the front if present
+        if (state.selectedProjectId) {
+          const idx = filteredProjects.findIndex(
+            (p) => p.id === state.selectedProjectId
+          );
+          if (idx > 0) {
+            const [selected] = filteredProjects.splice(idx, 1);
+            filteredProjects.unshift(selected);
+          }
+        }
+
+        filteredProjects.forEach((project) => {
           const tasks = state.tasks.filter((t) => t.projectId === project.id);
           const doneCount = tasks.filter((t) => t.status === "done").length;
           const progressPercent = tasks.length
@@ -675,11 +717,13 @@
 
       function selectProject(projectId) {
         state.selectedProjectId = projectId;
+        const proj = state.projects.find((p) => p.id === projectId);
+        if (proj) proj.lastUsed = Date.now(); // <-- Update lastUsed
         renderProjects();
         renderTaskBoard();
-        const proj = state.projects.find((p) => p.id === projectId);
         selectedProjectTitle.textContent = proj.name;
         noProjectSelectedMessage.classList.add("hidden");
+        saveProgress(); // Persist lastUsed
       }
 
       /* ========================= RENDER TASK BOARD =========================== */
@@ -1017,16 +1061,20 @@
       document.getElementById("projectForm").addEventListener("submit", (e) => {
         e.preventDefault();
         const data = {
-          id: document.getElementById("projectId").value,
           name: document.getElementById("projectName").value,
           description: document.getElementById("projectDescription").value,
         };
-        if (data.id) {
-          const p = state.projects.find((p) => p.id === data.id);
-          Object.assign(p, data);
+        const editId = document.getElementById("projectId").value;
+        if (editId) {
+          const p = state.projects.find((p) => p.id === editId);
+          Object.assign(p, { ...data, id: editId });
+          saveProgress();
+          renderProjects();
+          renderTaskBoard();
         } else {
+          const newId = crypto.randomUUID();
           state.projects.push({
-            id: Date.now().toString(),
+            id: newId,
             ...data,
             color: [
               "bg-blue-500",
@@ -1037,10 +1085,11 @@
               "bg-indigo-500",
               "bg-pink-500",
             ][Math.floor(Math.random() * 7)],
+            lastUsed: Date.now(), // <-- Add this line
           });
+          console.log("Projects after add:", state.projects);
+          selectProject(newId);
         }
-        saveProgress(); // <-- Add this line
-        renderProjects();
         closeProjectModal();
       });
       /* ========================= TASK FORM HANDLER ========================== */
@@ -1177,6 +1226,12 @@
           document.getElementById("scrollRight").style.opacity =
             scrollLeft < scrollWidth - clientWidth ? "1" : "0";
         });
+        document
+          .getElementById("projectSearchBar")
+          .addEventListener("input", (e) => {
+            state.projectSearchTerm = e.target.value;
+            renderProjects();
+          });
         [projectModal, taskModal, confirmModal].forEach((m) =>
           m.addEventListener("click", (e) => {
             if (e.target === m) m.classList.add("hidden");
